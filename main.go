@@ -63,8 +63,9 @@ func newRiddler() riddler {
 }
 
 //shoot an arrow as a member of Riddler Nation:
-// > For every shot, each archer of Riddler Nation has a one-third chance of hitting the bull’s-eye
-// > (i.e., earning 10 points), a one-third chance of earning 9 points
+// > For every shot, each archer of Riddler Nation has
+// > a one-third chance of hitting the bull’s-eye (i.e., earning 10 points),
+// > a one-third chance of earning 9 points
 // > and a one-third chance of earning 5 points.
 func (r riddler) shoot() (points int) {
 	n := r.r.Intn(3) // TODO oof bad naming

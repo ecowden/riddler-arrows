@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"math/rand"
 	"time"
@@ -11,19 +12,28 @@ type team string
 const (
 	riddlers       team = "Riddler Nation"
 	conundrumers   team = "Conundrum Country"
-	numGames            = 10000000000
 	arrowsPerRound      = 3
 	cScore              = 8 * arrowsPerRound
 )
 
+var (
+	numGames int64
+)
+
 func main() {
+	flag.Int64Var(&numGames, "n", 10000, "number of games to simulate (default 10000)")
+	flag.Parse()
+
+	fmt.Printf("Simulating %d games...\n", numGames)
+
 	scoreboard := map[team]int{
 		riddlers:     0,
 		conundrumers: 0,
 	}
 
 	r := newRiddler()
-	for i := 0; i < numGames; i++ {
+	var i int64
+	for i = 0; i < numGames; i++ {
 		winner := game(r)
 		scoreboard[winner] = scoreboard[winner] + 1
 	}
@@ -31,7 +41,7 @@ func main() {
 	fmt.Printf("Riddlers:     %d\n", scoreboard[riddlers])
 	fmt.Printf("Conundrumers: %d\n", scoreboard[conundrumers])
 	var riddlerWinRatio float64
-	riddlerWinRatio = float64(scoreboard[riddlers]) / numGames
+	riddlerWinRatio = float64(scoreboard[riddlers]) / float64(numGames)
 	fmt.Printf("Riddler Win Ratio: %f\n", riddlerWinRatio)
 }
 

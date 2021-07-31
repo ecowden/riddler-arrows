@@ -1,3 +1,3 @@
-module github.com/ecowden/arrows
+module github.com/ecowden/riddler-arrows
 
 go 1.15

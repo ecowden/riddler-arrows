@@ -22,16 +22,14 @@ const (
 )
 
 var (
-	numGames int64
-	workers  int
+	games   int64
+	workers int
 )
 
 func main() {
-	flag.Int64Var(&numGames, "n", 10000, "number of games to simulate (default: 10000)")
+	flag.Int64Var(&games, "g", 10000, "number of games to simulate (default: 10000)")
 	flag.IntVar(&workers, "w", runtime.NumCPU(), "number of concurrent workers (default: number of CPUs)")
 	flag.Parse()
-
-	fmt.Printf("Simulating %d games using %d workers...\n", numGames, workers)
 
 	scoreboard := map[team]int{
 		riddlers:     0,
@@ -39,21 +37,25 @@ func main() {
 	}
 
 	// Create workers
-	results := make(chan team)
+	gamesPerWorker := games / int64(workers)
 	var wg sync.WaitGroup
-	gamesPerWorker := numGames / int64(workers) // TODO recipe for rounding errors
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
+	wg.Add(workers)
+	results := make(chan team)
+	for i := 0; i < workers-1; i++ {
 		go worker(gamesPerWorker, results, &wg)
 	}
+	// Schedule last worker with remaining games to avoid rounding errors
+	remainingGames := games - (gamesPerWorker * (int64(workers) - 1))
+	go worker(remainingGames, results, &wg)
 
 	go func() { // Close the results channel when all workers are done
 		wg.Wait()
 		close(results)
 	}()
 
-	bar := pb.Start64(numGames)
-	for winner := range results { // Read results
+	// Read results
+	bar := pb.Start64(games)
+	for winner := range results {
 		scoreboard[winner] = scoreboard[winner] + 1
 		bar.Increment()
 	}
@@ -63,7 +65,7 @@ func main() {
 	fmt.Printf("Riddlers:     %d\n", scoreboard[riddlers])
 	fmt.Printf("Conundrumers: %d\n", scoreboard[conundrumers])
 	var riddlerWinRatio float64
-	riddlerWinRatio = float64(scoreboard[riddlers]) / float64(numGames)
+	riddlerWinRatio = float64(scoreboard[riddlers]) / float64(games)
 	fmt.Printf("Riddler Win Ratio: %f\n", riddlerWinRatio)
 }
 
@@ -77,7 +79,6 @@ func worker(n int64, results chan<- team, wg *sync.WaitGroup) {
 }
 
 func game(r riddler) (winner team) {
-
 	rScore := 0
 	for i := 0; i < arrowsPerRound; i++ {
 		rScore += r.shoot()

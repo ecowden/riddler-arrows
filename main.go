@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/cheggaaa/pb/v3"
 )
 
 type team int
@@ -50,11 +52,14 @@ func main() {
 		close(results)
 	}()
 
+	bar := pb.Start64(numGames)
 	for winner := range results { // Read results
 		scoreboard[winner] = scoreboard[winner] + 1
+		bar.Increment()
 	}
 
 	// Print results
+	bar.Finish()
 	fmt.Printf("Riddlers:     %d\n", scoreboard[riddlers])
 	fmt.Printf("Conundrumers: %d\n", scoreboard[conundrumers])
 	var riddlerWinRatio float64

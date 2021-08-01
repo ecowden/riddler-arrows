@@ -31,7 +31,7 @@ func main() {
 	flag.IntVar(&workers, "w", runtime.NumCPU(), "number of concurrent workers (default: number of CPUs)")
 	flag.Parse()
 
-	scoreboard := map[team]int{
+	scoreboard := map[team]int64{
 		riddlers:     0,
 		conundrumers: 0,
 	}

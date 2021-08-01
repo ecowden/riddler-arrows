@@ -30,7 +30,7 @@ func main() {
 	flag.Int64Var(&games, "g", 10000, "number of games to simulate (default: 10000)")
 	flag.IntVar(&workers, "w", runtime.NumCPU(), "number of concurrent workers (default: number of CPUs)")
 	flag.Parse()
-
+	start := time.Now()
 	scoreboard := map[team]int64{
 		riddlers:     0,
 		conundrumers: 0,
@@ -40,13 +40,14 @@ func main() {
 	gamesPerWorker := games / int64(workers)
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	results := make(chan team)
+	results := make(chan team, 1000)
 	for i := 0; i < workers-1; i++ {
-		go worker(gamesPerWorker, results, &wg)
+		go worker(i, gamesPerWorker, results, &wg)
+		time.Sleep(2 * time.Nanosecond) // cheap way to ensure each worker has a unique seed
 	}
 	// Schedule last worker with remaining games to avoid rounding errors
 	remainingGames := games - (gamesPerWorker * (int64(workers) - 1))
-	go worker(remainingGames, results, &wg)
+	go worker(workers-1, remainingGames, results, &wg)
 
 	go func() { // Close the results channel when all workers are done
 		wg.Wait()
@@ -55,6 +56,7 @@ func main() {
 
 	// Read results
 	bar := pb.Start64(games)
+
 	for winner := range results {
 		scoreboard[winner] = scoreboard[winner] + 1
 		bar.Increment()
@@ -62,6 +64,9 @@ func main() {
 
 	// Print results
 	bar.Finish()
+	end := time.Now()
+	duration := end.Sub(start)
+	fmt.Printf("Duration: %v\n", duration)
 	fmt.Printf("Riddlers:     %d\n", scoreboard[riddlers])
 	fmt.Printf("Conundrumers: %d\n", scoreboard[conundrumers])
 	var riddlerWinRatio float64
@@ -69,11 +74,13 @@ func main() {
 	fmt.Printf("Riddler Win Ratio: %f\n", riddlerWinRatio)
 }
 
-func worker(n int64, results chan<- team, wg *sync.WaitGroup) {
+func worker(id int, n int64, results chan<- team, wg *sync.WaitGroup) {
 	r := newRiddler()
 	var i int64
 	for i = 0; i < n; i++ {
-		results <- game(r)
+		winner := game(r)
+		results <- winner
+		fmt.Printf("%d: %v\n", id, winner)
 	}
 	wg.Done()
 }

@@ -31,57 +31,67 @@ func main() {
 	flag.IntVar(&workers, "w", runtime.NumCPU(), "number of concurrent workers (default: number of CPUs)")
 	flag.Parse()
 	start := time.Now()
-	scoreboard := map[team]int64{
-		riddlers:     0,
-		conundrumers: 0,
-	}
+	var rWins, cWins int64
 
 	// Create workers
+	bar := pb.Start64(games)
 	gamesPerWorker := games / int64(workers)
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	results := make(chan team, 1000)
+	rWinsCh := make(chan int64, workers)
+	cWinsCh := make(chan int64, workers)
 	for i := 0; i < workers-1; i++ {
-		go worker(i, gamesPerWorker, results, &wg)
+		go worker(gamesPerWorker, rWinsCh, cWinsCh, &wg, bar)
 		time.Sleep(2 * time.Nanosecond) // cheap way to ensure each worker has a unique seed
 	}
 	// Schedule last worker with remaining games to avoid rounding errors
 	remainingGames := games - (gamesPerWorker * (int64(workers) - 1))
-	go worker(workers-1, remainingGames, results, &wg)
-
-	go func() { // Close the results channel when all workers are done
-		wg.Wait()
-		close(results)
-	}()
+	go worker(remainingGames, rWinsCh, cWinsCh, &wg, bar)
 
 	// Read results
-	bar := pb.Start64(games)
+	go func() {
+		for n := range rWinsCh {
+			rWins += n
+		}
+	}()
+	go func() {
+		for n := range cWinsCh {
+			cWins += n
+		}
+	}()
 
-	for winner := range results {
-		scoreboard[winner] = scoreboard[winner] + 1
-		bar.Increment()
-	}
+	// Wait for completion
+	wg.Wait()
+	close(rWinsCh)
+	close(cWinsCh)
 
 	// Print results
 	bar.Finish()
 	end := time.Now()
 	duration := end.Sub(start)
 	fmt.Printf("Duration: %v\n", duration)
-	fmt.Printf("Riddlers:     %d\n", scoreboard[riddlers])
-	fmt.Printf("Conundrumers: %d\n", scoreboard[conundrumers])
+	fmt.Printf("Riddlers:     %d\n", rWins)
+	fmt.Printf("Conundrumers: %d\n", cWins)
 	var riddlerWinRatio float64
-	riddlerWinRatio = float64(scoreboard[riddlers]) / float64(games)
+	riddlerWinRatio = float64(rWins) / float64(games)
 	fmt.Printf("Riddler Win Ratio: %f\n", riddlerWinRatio)
 }
 
-func worker(id int, n int64, results chan<- team, wg *sync.WaitGroup) {
+func worker(n int64, rWinsCh chan<- int64, cWinsCh chan<- int64, wg *sync.WaitGroup, bar *pb.ProgressBar) {
 	r := newRiddler()
+	var rWins, cWins int64
 	var i int64
 	for i = 0; i < n; i++ {
 		winner := game(r)
-		results <- winner
-		fmt.Printf("%d: %v\n", id, winner)
+		if winner == riddlers {
+			rWins++
+		} else {
+			cWins++
+		}
+		bar.Increment()
 	}
+	rWinsCh <- rWins
+	cWinsCh <- cWins
 	wg.Done()
 }
 
